@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: reservation
+  datasource:
+    url: jdbc:mysql://localhost:3306/${DB_TABLE}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useUnicode=true
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
