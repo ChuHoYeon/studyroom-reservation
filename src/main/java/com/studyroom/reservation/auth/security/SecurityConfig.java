@@ -1,4 +1,4 @@
-package com.studyroom.reservation.config;
+package com.studyroom.reservation.auth.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
