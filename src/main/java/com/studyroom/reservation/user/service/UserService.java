@@ -1,5 +1,6 @@
 package com.studyroom.reservation.user.service;
 
+import com.studyroom.reservation.auth.service.EmailVerificationService;
 import com.studyroom.reservation.common.exception.DuplicateEmailException;
 import com.studyroom.reservation.user.dto.request.SignUpRequestDTO;
 import com.studyroom.reservation.user.dto.response.SignUpResponseDTO;
@@ -17,6 +18,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailVerificationService emailVerificationService;
 
     @Transactional
     public SignUpResponseDTO signUp(SignUpRequestDTO request) {
@@ -31,6 +33,8 @@ public class UserService {
         User user = User.create(request.email(), encodePassword, request.name());
 
         User savedUser = userRepository.save(user);
+
+        emailVerificationService.issueAndSend(savedUser);
 
         return SignUpResponseDTO.from(savedUser);
     }

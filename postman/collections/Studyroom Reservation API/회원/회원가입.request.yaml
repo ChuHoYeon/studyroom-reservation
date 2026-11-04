@@ -1,0 +1,18 @@
+$kind: http-request
+name: 회원가입
+order: 1000
+method: POST
+url: '{{baseUrl}}/api/v1/users'
+headers:
+  - key: Content-Type
+    value: application/json
+auth:
+  type: noauth
+body:
+  type: json
+  content: |-
+    {
+      "email": "postman-user@example.com",
+      "password": "password123",
+      "name": "홍길동"
+    }

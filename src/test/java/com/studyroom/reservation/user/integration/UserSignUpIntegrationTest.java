@@ -1,15 +1,21 @@
 package com.studyroom.reservation.user.integration;
 
+import com.studyroom.reservation.auth.entity.EmailVerificationToken;
+import com.studyroom.reservation.auth.service.EmailSender;
+import com.studyroom.reservation.auth.service.VerificationTokenGenerator;
 import com.studyroom.reservation.user.entity.User;
 import com.studyroom.reservation.user.entity.UserRole;
 import com.studyroom.reservation.user.entity.UserStatus;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +23,8 @@ import java.util.Locale;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -24,6 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@ActiveProfiles("test")
 class UserSignUpIntegrationTest {
 
     @Autowired
@@ -34,6 +43,12 @@ class UserSignUpIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private VerificationTokenGenerator tokenGenerator;
+
+    @MockitoBean
+    private EmailSender emailSender;
 
     @Test
     void signUp_persistsNormalizedUserWithEncodedPassword() throws Exception {
@@ -67,6 +82,33 @@ class UserSignUpIntegrationTest {
         assertThat(savedUser.getRole()).isEqualTo(UserRole.USER);
         assertThat(savedUser.getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(savedUser.isEmailVerified()).isFalse();
+
+        EmailVerificationToken savedToken = entityManager.createQuery(
+                        "select t from EmailVerificationToken t where t.user = :user",
+                        EmailVerificationToken.class
+                )
+                .setParameter("user", savedUser)
+                .getSingleResult();
+
+        ArgumentCaptor<String> verificationUrlCaptor =
+                ArgumentCaptor.forClass(String.class);
+        verify(emailSender).sendVerificationEmail(
+                org.mockito.ArgumentMatchers.eq(email),
+                verificationUrlCaptor.capture()
+        );
+
+        String verificationUrl = verificationUrlCaptor.getValue();
+        String urlPrefix =
+                "http://localhost:8080/api/v1/auth/email/verify?token=";
+        assertThat(verificationUrl).startsWith(urlPrefix);
+
+        String rawToken = verificationUrl.substring(urlPrefix.length());
+        assertThat(savedToken.getUser()).isSameAs(savedUser);
+        assertThat(savedToken.getTokenHash())
+                .isEqualTo(tokenGenerator.hash(rawToken))
+                .isNotEqualTo(rawToken);
+        assertThat(savedToken.getUsedAt()).isNull();
+        assertThat(savedToken.getInvalidatedAt()).isNull();
     }
 
     @Test
@@ -101,6 +143,7 @@ class UserSignUpIntegrationTest {
                 .getSingleResult();
 
         assertThat(userCount).isEqualTo(1L);
+        verifyNoInteractions(emailSender);
     }
 
     private String uniqueEmail() {

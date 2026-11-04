@@ -1,0 +1,10 @@
+spring:
+  mail:
+    host: localhost
+    port: 1025
+
+app:
+  mail:
+    from: no-reply@studyroom.test
+  auth:
+    email-verification-url: http://localhost:8080/api/v1/auth/email/verify
