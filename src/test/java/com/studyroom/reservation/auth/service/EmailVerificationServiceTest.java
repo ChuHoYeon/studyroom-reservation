@@ -2,6 +2,7 @@ package com.studyroom.reservation.auth.service;
 
 import com.studyroom.reservation.auth.entity.EmailVerificationToken;
 import com.studyroom.reservation.auth.repository.EmailVerificationTokenRepository;
+import com.studyroom.reservation.common.exception.InvalidEmailVerificationTokenException;
 import com.studyroom.reservation.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -122,5 +125,55 @@ class EmailVerificationServiceTest {
                 .isSameAs(mailException);
 
         verify(tokenRepository).save(any(EmailVerificationToken.class));
+    }
+
+    @Test
+    void verify_marksTokenUsedAndVerifiesUser() {
+        User user = User.create(
+                "user@example.com",
+                "encoded-password",
+                "홍길동"
+        );
+        EmailVerificationToken token = EmailVerificationToken.issue(
+                user,
+                TOKEN_HASH,
+                LocalDateTime.of(2026, 11, 4, 10, 30)
+        );
+        when(tokenGenerator.hash(RAW_TOKEN)).thenReturn(TOKEN_HASH);
+        when(tokenRepository.findByTokenHash(TOKEN_HASH))
+                .thenReturn(Optional.of(token));
+
+        emailVerificationService.verify(RAW_TOKEN);
+
+        assertThat(token.getUsedAt())
+                .isEqualTo(LocalDateTime.of(2026, 11, 4, 10, 0));
+        assertThat(user.isEmailVerified()).isTrue();
+        verify(tokenGenerator).hash(RAW_TOKEN);
+        verify(tokenRepository).findByTokenHash(TOKEN_HASH);
+    }
+
+    @Test
+    void verify_rejectsNullOrBlankTokenBeforeHashing() {
+        for (String invalidToken : new String[]{null, "", "   "}) {
+            assertThatThrownBy(() -> emailVerificationService.verify(invalidToken))
+                    .isInstanceOf(InvalidEmailVerificationTokenException.class)
+                    .hasMessage("유효하지 않거나 만료된 이메일 인증 링크입니다.");
+        }
+
+        verifyNoInteractions(tokenGenerator, tokenRepository);
+    }
+
+    @Test
+    void verify_rejectsUnknownTokenHash() {
+        when(tokenGenerator.hash(RAW_TOKEN)).thenReturn(TOKEN_HASH);
+        when(tokenRepository.findByTokenHash(TOKEN_HASH))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> emailVerificationService.verify(RAW_TOKEN))
+                .isInstanceOf(InvalidEmailVerificationTokenException.class)
+                .hasMessage("유효하지 않거나 만료된 이메일 인증 링크입니다.");
+
+        verify(tokenGenerator).hash(RAW_TOKEN);
+        verify(tokenRepository).findByTokenHash(TOKEN_HASH);
     }
 }
