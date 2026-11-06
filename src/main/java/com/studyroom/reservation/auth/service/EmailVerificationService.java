@@ -2,6 +2,7 @@ package com.studyroom.reservation.auth.service;
 
 import com.studyroom.reservation.auth.entity.EmailVerificationToken;
 import com.studyroom.reservation.auth.repository.EmailVerificationTokenRepository;
+import com.studyroom.reservation.common.exception.InvalidEmailVerificationTokenException;
 import com.studyroom.reservation.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,5 +36,22 @@ public class EmailVerificationService {
 
         String verificationUrl = emailVerificationUrl + "?token=" + rawToken;
         emailSender.sendVerificationEmail(user.getEmail(), verificationUrl);
+    }
+
+    @Transactional
+    public void verify(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) {
+            throw new InvalidEmailVerificationTokenException();
+        }
+
+        String tokenHash = tokenGenerator.hash(rawToken);
+
+        EmailVerificationToken token = emailVerificationTokenRepository.findByTokenHash(tokenHash)
+                .orElseThrow(InvalidEmailVerificationTokenException::new);
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        token.markUsed(now);
+
+        token.getUser().verifyEmail();
     }
 }

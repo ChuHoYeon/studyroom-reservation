@@ -1,5 +1,6 @@
 package com.studyroom.reservation.auth.entity;
 
+import com.studyroom.reservation.common.exception.InvalidEmailVerificationTokenException;
 import com.studyroom.reservation.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -48,6 +49,7 @@ public class EmailVerificationToken {
         this.expiresAt = expiresAt;
     }
 
+    // 해시값과 만료 시각을 가진 토큰 엔티티 생성
     public static EmailVerificationToken issue(User user, String tokenHash, LocalDateTime expiresAt) {
         if (user == null) {
             throw new IllegalArgumentException("유저정보가 필요합니다.");
@@ -64,14 +66,22 @@ public class EmailVerificationToken {
         return new EmailVerificationToken(user, tokenHash, expiresAt);
     }
 
+    // 토큰 사용 완료 상태로 변경
     public void markUsed(LocalDateTime usedAt) {
+        LocalDateTime verifiedAt = Objects.requireNonNull(usedAt);
+
         if (this.usedAt != null || invalidatedAt != null) {
-            throw new IllegalStateException("사용할 수 없는 토큰입니다.");
+            throw new InvalidEmailVerificationTokenException();
         }
 
-        this.usedAt = Objects.requireNonNull(usedAt);
+        if (!verifiedAt.isBefore(expiresAt)) {
+            throw new InvalidEmailVerificationTokenException();
+        }
+
+        this.usedAt = verifiedAt;
     }
 
+    // 토큰 사용 불가 상태로 변경
     public void invalidate(LocalDateTime invalidatedAt) {
         if (usedAt != null) {
             throw new IllegalStateException("이미 사용된 토큰입니다.");

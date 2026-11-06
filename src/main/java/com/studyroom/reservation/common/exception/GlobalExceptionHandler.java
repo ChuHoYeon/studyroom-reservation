@@ -16,4 +16,13 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.CONFLICT)
                 .body(response);
     }
+
+    @ExceptionHandler(InvalidEmailVerificationTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidEmailVerificationToken(InvalidEmailVerificationTokenException exception) {
+        ErrorResponse response = new ErrorResponse("INVALID_EMAIL_VERIFICATION_TOKEN", exception.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(response);
+    }
 }
