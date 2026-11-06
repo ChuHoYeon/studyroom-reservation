@@ -9,13 +9,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RequiredArgsConstructor
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/users")
 @RestController
 public class UserController {
 
     private final UserService userService;
 
-    @PostMapping("/users")
+    @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public SignUpResponseDTO signUp(@Valid @RequestBody SignUpRequestDTO request) {
         return userService.signUp(request);
