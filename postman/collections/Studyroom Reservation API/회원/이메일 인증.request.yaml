@@ -1,0 +1,17 @@
+$kind: http-request
+description: |-
+  인증 메일에 포함된 일회용 토큰으로 사용자의 이메일 인증을 완료합니다.
+
+  Mailpit에서 인증 링크의 token 값을 복사해 verificationToken 변수에 설정한 뒤 요청합니다.  
+  저장된 토큰을 조회하고, 유효한 경우 사용자의 emailVerified를 true로 변경하며 토큰의 usedAt을 기록합니다.
+
+  성공: 204 No Content  
+  존재하지 않거나 비어 있는 토큰: 400 Bad Request / INVALID_EMAIL_VERIFICATION_TOKEN  
+  만료·사용·무효화된 토큰: 400 Bad Request / INVALID_EMAIL_VERIFICATION_TOKEN
+
+  실제 토큰 값은 저장소에 커밋하지 않습니다.
+url: "{{baseUrl}}/api/v1/auth/email/verify?token={{verificationToken}}"
+method: GET
+queryParams:
+  token: "{{verificationToken}}"
+order: 2000

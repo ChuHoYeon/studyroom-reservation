@@ -1,18 +1,28 @@
 $kind: http-request
-name: 회원가입
+description: |-
+  새로운 사용자를 등록하고 이메일 인증 메일을 발송합니다.
+
+  이메일은 앞뒤 공백 제거 후 소문자로 정규화하며 중복을 허용하지 않습니다.  
+  이름은 앞뒤 공백 제거 후 1\~50자, 비밀번호는 8\~64자여야 합니다.  
+  가입한 사용자는 USER 권한과 ACTIVE 상태로 생성되며 이메일 인증 전까지 emailVerified는 false입니다.
+
+  가입과 함께 30분 동안 유효한 일회용 인증 토큰을 발급합니다.
+
+  성공: 201 Created  
+  중복 이메일: 409 Conflict / DUPLICATE_EMAIL  
+  요청값 검증 실패: 400 Bad Request
 order: 1000
 method: POST
-url: '{{baseUrl}}/api/v1/users'
+url: "{{baseUrl}}/api/v1/users"
 headers:
-  - key: Content-Type
-    value: application/json
+  Content-Type: application/json
 auth:
   type: noauth
 body:
   type: json
   content: |-
     {
-      "email": "postman-user@example.com",
+      "email": "postman-user1@example.com",
       "password": "password123",
       "name": "홍길동"
     }

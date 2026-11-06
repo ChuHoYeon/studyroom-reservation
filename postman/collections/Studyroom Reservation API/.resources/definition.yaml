@@ -15,3 +15,4 @@ auth:
 variables:
   baseUrl: http://localhost:8080
   accessToken: ""
+  verificationToken: ""
