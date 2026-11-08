@@ -4,6 +4,8 @@ import com.studyroom.reservation.auth.entity.EmailVerificationToken;
 import com.studyroom.reservation.auth.repository.EmailVerificationTokenRepository;
 import com.studyroom.reservation.common.exception.InvalidEmailVerificationTokenException;
 import com.studyroom.reservation.user.entity.User;
+import com.studyroom.reservation.user.entity.UserStatus;
+import com.studyroom.reservation.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -11,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @RequiredArgsConstructor
 @Service
@@ -22,6 +25,7 @@ public class EmailVerificationService {
     private final VerificationTokenGenerator tokenGenerator;
     private final Clock clock;
     private final EmailSender emailSender;
+    private final UserRepository userRepository;
 
     @Transactional
     public void issueAndSend(User user) {
@@ -53,5 +57,22 @@ public class EmailVerificationService {
         token.markUsed(now);
 
         token.getUser().verifyEmail();
+    }
+
+    @Transactional
+    public void resend(String email) {
+        User user = userRepository.findByEmail(email).orElse(null);
+
+        if (user == null || user.isEmailVerified() || user.getStatus() == UserStatus.INACTIVE) {
+            return;
+        }
+
+        LocalDateTime invalidatedAt = LocalDateTime.now(clock);
+
+        List<EmailVerificationToken> tokens = emailVerificationTokenRepository.findAllByUserAndUsedAtIsNullAndInvalidatedAtIsNull(user);
+
+        tokens.forEach(token -> token.invalidate(invalidatedAt));
+
+        issueAndSend(user);
     }
 }
