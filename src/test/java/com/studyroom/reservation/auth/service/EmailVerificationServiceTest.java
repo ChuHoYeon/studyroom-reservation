@@ -4,6 +4,7 @@ import com.studyroom.reservation.auth.entity.EmailVerificationToken;
 import com.studyroom.reservation.auth.repository.EmailVerificationTokenRepository;
 import com.studyroom.reservation.common.exception.InvalidEmailVerificationTokenException;
 import com.studyroom.reservation.user.entity.User;
+import com.studyroom.reservation.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,6 +19,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,6 +48,9 @@ class EmailVerificationServiceTest {
     @Mock
     private EmailSender emailSender;
 
+    @Mock
+    private UserRepository userRepository;
+
     private EmailVerificationService emailVerificationService;
 
     @BeforeEach
@@ -58,7 +63,8 @@ class EmailVerificationServiceTest {
                 tokenRepository,
                 tokenGenerator,
                 fixedClock,
-                emailSender
+                emailSender,
+                userRepository
         );
         ReflectionTestUtils.setField(
                 emailVerificationService,
@@ -175,5 +181,105 @@ class EmailVerificationServiceTest {
 
         verify(tokenGenerator).hash(RAW_TOKEN);
         verify(tokenRepository).findByTokenHash(TOKEN_HASH);
+    }
+
+    @Test
+    void resend_returnsWithoutSideEffectsForUnknownEmail() {
+        when(userRepository.findByEmail("unknown@example.com"))
+                .thenReturn(Optional.empty());
+
+        emailVerificationService.resend("unknown@example.com");
+
+        verify(userRepository).findByEmail("unknown@example.com");
+        verifyNoInteractions(tokenRepository, tokenGenerator, emailSender);
+    }
+
+    @Test
+    void resend_returnsWithoutSideEffectsForVerifiedUser() {
+        User user = createUser();
+        user.verifyEmail();
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(Optional.of(user));
+
+        emailVerificationService.resend(user.getEmail());
+
+        verify(userRepository).findByEmail(user.getEmail());
+        verifyNoInteractions(tokenRepository, tokenGenerator, emailSender);
+    }
+
+    @Test
+    void resend_returnsWithoutSideEffectsForInactiveUser() {
+        User user = createUser();
+        user.deactivate();
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(Optional.of(user));
+
+        emailVerificationService.resend(user.getEmail());
+
+        verify(userRepository).findByEmail(user.getEmail());
+        verifyNoInteractions(tokenRepository, tokenGenerator, emailSender);
+    }
+
+    @Test
+    void resend_issuesNewTokenWhenNoPreviousActiveTokenExists() {
+        User user = createUser();
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(Optional.of(user));
+        when(tokenRepository.findAllByUserAndUsedAtIsNullAndInvalidatedAtIsNull(user))
+                .thenReturn(List.of());
+        when(tokenGenerator.generateRawToken()).thenReturn(RAW_TOKEN);
+        when(tokenGenerator.hash(RAW_TOKEN)).thenReturn(TOKEN_HASH);
+
+        emailVerificationService.resend(user.getEmail());
+
+        ArgumentCaptor<EmailVerificationToken> tokenCaptor =
+                ArgumentCaptor.forClass(EmailVerificationToken.class);
+        verify(tokenRepository).save(tokenCaptor.capture());
+        assertThat(tokenCaptor.getValue().getUser()).isSameAs(user);
+        assertThat(tokenCaptor.getValue().getTokenHash()).isEqualTo(TOKEN_HASH);
+        verify(emailSender).sendVerificationEmail(
+                user.getEmail(),
+                VERIFICATION_URL + "?token=" + RAW_TOKEN
+        );
+    }
+
+    @Test
+    void resend_invalidatesAllPreviousActiveTokensAndIssuesNewToken() {
+        User user = createUser();
+        EmailVerificationToken firstToken = EmailVerificationToken.issue(
+                user,
+                "b".repeat(64),
+                LocalDateTime.of(2026, 11, 4, 10, 30)
+        );
+        EmailVerificationToken secondToken = EmailVerificationToken.issue(
+                user,
+                "c".repeat(64),
+                LocalDateTime.of(2026, 11, 4, 10, 30)
+        );
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(Optional.of(user));
+        when(tokenRepository.findAllByUserAndUsedAtIsNullAndInvalidatedAtIsNull(user))
+                .thenReturn(List.of(firstToken, secondToken));
+        when(tokenGenerator.generateRawToken()).thenReturn(RAW_TOKEN);
+        when(tokenGenerator.hash(RAW_TOKEN)).thenReturn(TOKEN_HASH);
+
+        emailVerificationService.resend(user.getEmail());
+
+        LocalDateTime invalidatedAt = LocalDateTime.of(2026, 11, 4, 10, 0);
+        assertThat(firstToken.getInvalidatedAt()).isEqualTo(invalidatedAt);
+        assertThat(secondToken.getInvalidatedAt()).isEqualTo(invalidatedAt);
+        verify(tokenRepository).save(any(EmailVerificationToken.class));
+        verify(emailSender).sendVerificationEmail(
+                user.getEmail(),
+                VERIFICATION_URL + "?token=" + RAW_TOKEN
+        );
+    }
+
+    private User createUser() {
+        return User.create(
+                "user@example.com",
+                "encoded-password",
+                "홍길동"
+        );
     }
 }

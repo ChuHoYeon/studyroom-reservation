@@ -8,13 +8,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -58,5 +62,47 @@ class AuthControllerTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(emailVerificationService);
+    }
+
+    @Test
+    void resendVerificationEmail_allowsUnauthenticatedRequestAndReturnsNoContent() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/email/resend")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "  USER@EXAMPLE.COM  "
+                                }
+                                """))
+                .andExpect(status().isNoContent());
+
+        verify(emailVerificationService).resend("user@example.com");
+    }
+
+    @Test
+    void resendVerificationEmail_returnsBadRequestForInvalidEmail() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/email/resend")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "invalid-email"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        verify(emailVerificationService, never()).resend(anyString());
+    }
+
+    @Test
+    void resendVerificationEmail_returnsBadRequestForBlankEmail() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/email/resend")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "   "
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        verify(emailVerificationService, never()).resend(anyString());
     }
 }
