@@ -1,0 +1,11 @@
+$kind: http-request
+url: "{{baseUrl}}/api/v1/auth/email/resend"
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \    \"email\": \"postman-user2@example.com\"\r
+
+    }"
+order: 3000
