@@ -20,6 +20,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/users").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/email/verify").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/email/resend").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/spaces", "/api/v1/spaces/**").permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/health").permitAll()
                         .anyRequest().authenticated()
                 )

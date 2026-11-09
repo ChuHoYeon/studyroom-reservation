@@ -62,8 +62,10 @@ public class Space {
         this.openTime = openTime;
         this.closeTime = closeTime;
         this.status = SpaceStatus.ACTIVE;
+        this.deactivateAt = null;
 
     }
+
     public static Space create(String name, String description, int capacity, LocalTime openTime, LocalTime closeTime) {
         if (name == null || openTime == null || closeTime == null) {
             throw new IllegalArgumentException("필수 정보를 입력해 주세요.");
@@ -84,6 +86,32 @@ public class Space {
         }
 
         return new Space(name.trim(), description, capacity, openTime, closeTime);
+    }
+
+    public void update(String name, String description, int capacity, LocalTime openTime, LocalTime closeTime) {
+        if (name == null || openTime == null || closeTime == null) {
+            throw new IllegalArgumentException("필수 정보를 입력해 주세요.");
+        }
+
+        String normalizedName = Objects.requireNonNull(name).trim();
+
+        if (normalizedName.isEmpty() || normalizedName.length() > 100) {
+            throw new IllegalArgumentException("스터디룸 이름은 1자 이상 100자 이하이어야 합니다.");
+        }
+
+        if (capacity < 1) {
+            throw new IllegalArgumentException("수용 인원은 1명 이상이어야 합니다.");
+        }
+
+        if (!openTime.isBefore(closeTime)) {
+            throw new IllegalArgumentException("운영 시작 시간은 종료 시간보다 빨라야 합니다.");
+        }
+
+        this.name = normalizedName;
+        this.description = description;
+        this.capacity = capacity;
+        this.openTime = openTime;
+        this.closeTime = closeTime;
     }
 
     public void scheduleDeactivation(LocalDateTime deactivateAt) {

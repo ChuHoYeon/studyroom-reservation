@@ -25,4 +25,22 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST)
                 .body(response);
     }
+
+    @ExceptionHandler(SpaceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleSpaceNotFoundException(SpaceNotFoundException exception) {
+        ErrorResponse response = new ErrorResponse("SPACE_NOT_FOUND", exception.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(response);
+    }
+
+    @ExceptionHandler(SpaceInactiveException.class)
+    public ResponseEntity<ErrorResponse> handleSpaceInactiveException(SpaceInactiveException exception) {
+        ErrorResponse response = new ErrorResponse("SPACE_INACTIVE", exception.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(response);
+    }
 }
